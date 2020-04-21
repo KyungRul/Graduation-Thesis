@@ -1,12 +1,23 @@
 from os import listdir
 import numpy as np
-from scapy.all import *
 import gc
 import pandas as pd
 from scipy import stats
+import matplotlib.pyplot as plt
 
 dir_path = './packets_extracted_info'
 target_dir_path = './stat'
+
+
+def get_rel_freq(lst_len, title):
+    res = stats.relfreq(lst_len, numbins=10)
+    x = res.lowerlimit + np.linspace(0, res.binsize * res.frequency.size, res.frequency.size)
+    fig = plt.figure(figsize=(5, 4))
+    ax = fig.add_subplot(1, 1, 1)
+    ax.bar(x, res.frequency, width=res.binsize)
+    ax.set_title(title)
+    ax.set_xlim([x.min(), x.max()])
+    plt.savefig(target_dir_path + '/' + title + '.jpg')
 
 
 def insert_into_df(normal, attack, type):
@@ -17,12 +28,16 @@ def insert_into_df(normal, attack, type):
     dct['normal_count'] = normal.size
     dct['attack_len_mean'] = attack.mean()
     dct['attack_len_std'] = attack.std()
-    dct['normal_count'] = attack.size
+    dct['abnormal_count'] = attack.size
 
     tot = np.concatenate((normal, attack))
     dct['tot_len_mean'] = tot.mean()
     dct['tot_len_std'] = tot.std()
     dct['tot_count'] = tot.size
+
+    get_rel_freq(normal, type + '_' + 'normal_rel_freq')
+    get_rel_freq(attack, type + '_' + 'attack_rel_freq')
+    get_rel_freq(tot, type + '_' + 'total_rel_freq')
 
     return dct
 
@@ -48,8 +63,8 @@ if __name__ == "__main__":
                        ('normal_count', np.int), ('abnormal_count', np.int), ('tot_count', np.int)])
     df_stat = pd.DataFrame(np.empty((0), dtype=dtypes))
 
-    normal_len_tot = np.empty([1], dtype=np.int)
-    attack_len_tot = np.empty([1], dtype=np.int)
+    normal_len_tot = np.zeros((0), dtype=np.int)
+    attack_len_tot = np.zeros((0), dtype=np.int)
 
     for file in files:
         print('{} starts'.format(file))
