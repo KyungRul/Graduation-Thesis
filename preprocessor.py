@@ -77,7 +77,7 @@ if __name__ == '__main__':
     count = np.bincount(src.clip(0))
     idx = count.nonzero()[0]
     selected_ports = np.where(count.sum() // 100 >= count)
-    selected_ports = np.intersect1d(idx, selected_ports)
+    selected_ports = np.intersect1d(idx, selected_ports[0])
     for port in selected_ports:
         src[np.where(src == port)] = -1
 
@@ -87,6 +87,9 @@ if __name__ == '__main__':
     selected_ports = np.intersect1d(idx, selected_ports)
     for port in selected_ports:
         dst[np.where(dst == port)] = -1
+
+    df['srcPort'] = src
+    df['dstPort'] = dst
 
     flag = np.unique(df['flags'].to_numpy().astype(np.str)).size
     method = np.unique(df['method'].to_numpy().astype(np.str)).size
