@@ -5,23 +5,24 @@ import numpy as np
 import gc
 
 
-def pcap2dict(target):
+def pcap2dict(target, label):
     p_list = []
     pcap = rdpcap(target)
 
     for i, packet in enumerate(pcap):
         layer = packet.payload
         p_dict = {}
-        p_dict['class'] = False
+        p_dict['class'] = 0
         while layer:
             layerName = layer.name
 
             if layerName == "IP":
                 p_dict["srcIP"] = layer.src
-                p_dict["dstIp"] = layer.dst
+                p_dict["dstIP"] = layer.dst
                 if layer.dst == '210.89.164.90':
-                    p_dict['class'] = True
+                    p_dict['class'] = label
             if layerName == "TCP" or layerName == "UDP":
+                p_dict['protocol'] = layerName
                 if layerName == 'TCP':
                     flags = ''
                     if layer.flags == 2:
@@ -55,11 +56,18 @@ def pcap2dict(target):
 
 def processHTTP(data):
     info = dict()
-    headers = str(data).splitlines()
+
+    try:
+        data.decode()
+    except UnicodeDecodeError:
+        return info
+
+    headers = data.decode().splitlines()
+    info['method'] = 'ETC'
     for header in headers:
         if header.startswith("GET") or header.startswith("POST"):
             info["method"] = header.split()[0]
-            info["uri"] = len(header.split()[1])
+            info["uriLen"] = len(header.split()[1])
         if header.startswith("HTTP"):
             info["method"] = "response"
             info["status"] = header.split()[1]
@@ -67,25 +75,25 @@ def processHTTP(data):
             info["host"] = header.split(":", 1)[1]
         if header.startswith("User-Agent"):
             info["user-agent"] = header.split(":", 1)[1]
-        if header.startswith("Referer"):
-            info["referer"] = header.split(":", 1)[1]
         if header.startswith("Cookie"):
-            info["cookies"] = header.split(":", 1)[1]
+            info["cookiesLen"] = len(header.split(":", 1)[1])
 
     return info
 
 
-def analyze_file(files, to_file):
+def analyze_file(files, to_file, label):
     result_path = './packets_extracted_info/'
     dtypes = np.dtype(
-        [('srcIP', np.str), ('dstIP', np.str), ('srcPort', np.str), ('dstPort', np.str), ('seq', np.int),
-         ('ack', np.int), ('flags', np.str), ('method', np.str), ('uri', np.str), ('status', np.str), ('host', np.str),
-         ('user-agent', np.str), ('referer', np.str), ('cookies', np.str), ('len', np.int), ('class', np.bool)])
+        [('srcIP', np.str), ('dstIP', np.str), ('srcPort', np.str), ('dstPort', np.str), ('protocol', np.str),
+         ('seq', np.int), ('ack', np.int), ('flags', np.str), ('method', np.str), ('uriLen', np.int),
+         ('status', np.str),
+         ('host', np.str), ('user-agent', np.str), ('cookiesLen', np.int), ('len', np.int),
+         ('class', np.int)])
 
     df = pd.DataFrame(np.empty(0, dtype=dtypes))
     for file in files:
         print(file, ': starts')
-        result = pcap2dict(file)
+        result = pcap2dict(file, label)
         df = df.append(result, ignore_index=True)
         print(file, ': finished')
         del result
@@ -103,6 +111,6 @@ if __name__ == "__main__":
     udpflood = [dir_path + '/' + file for file in files if "udpflooding" in file]
     ackflood = [dir_path + '/' + file for file in files if "ackflooding" in file]
     httpflood = [dir_path + '/' + file for file in files if "httpflooding" in file]
-    analyze_file(httpflood, 'httpflooding_extract.csv')
-    analyze_file(udpflood, 'udpflooding_extract.csv')
-    analyze_file(ackflood, 'ackflooding_extract.csv')
+    analyze_file(httpflood, 'httpflooding_extract.csv', 2)
+    analyze_file(udpflood, 'udpflooding_extract.csv', 3)
+    analyze_file(ackflood, 'ackflooding_extract.csv', 1)
