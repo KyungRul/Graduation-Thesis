@@ -28,7 +28,7 @@ def insert_into_df(normal, attack, type):
     dct['normal_count'] = normal.size
     dct['attack_len_mean'] = attack.mean()
     dct['attack_len_std'] = attack.std()
-    dct['abnormal_count'] = attack.size
+    dct['attack_count'] = attack.size
 
     tot = np.concatenate((normal, attack))
     dct['tot_len_mean'] = tot.mean()
@@ -60,7 +60,7 @@ if __name__ == "__main__":
     files = listdir(dir_path)
     dtypes = np.dtype([('normal_len_mean', np.float), ('normal_len_std', np.float), ('attack_len_mean', np.float),
                        ('attack_len_std', np.float), ('tot_len_mean', np.float), ('tot_len_std', np.float),
-                       ('normal_count', np.int), ('abnormal_count', np.int), ('tot_count', np.int)])
+                       ('normal_count', np.int), ('attack_count', np.int), ('tot_count', np.int)])
     df_stat = pd.DataFrame(np.empty((0), dtype=dtypes))
 
     normal_len_tot = np.zeros((0), dtype=np.int)
