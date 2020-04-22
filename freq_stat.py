@@ -65,19 +65,20 @@ def print_percentage(pcap, file):
     gc.collect()
 
 
-dir_path = './RawData/iot-network-intrusion-dataset/Packets'
-files = listdir(dir_path)
+if __name__ == "__main__":
+    dir_path = './RawData/iot-network-intrusion-dataset/Packets'
+    files = listdir(dir_path)
 
-for file in files:
-    if 'mirai' in file and 'hostbruteforce' not in file:
-        pcap = rdpcap(dir_path + '/' + file)
-        print_percentage(pcap, file)
+    for file in files:
+        if 'mirai' in file and 'hostbruteforce' not in file:
+            pcap = rdpcap(dir_path + '/' + file)
+            print_percentage(pcap, file)
 
-result = ''
-for k, v in sorted(tot_proto_result.items(), key=lambda x: x[1]):
-    result += 'num: {}, {}: {}\t'.format(v, k, v / len(pcap))
-print(result)
+    result = ''
+    for k, v in sorted(tot_proto_result.items(), key=lambda x: x[1]):
+        result += 'num: {}, {}: {}\t'.format(v, k, v / len(pcap))
+    print(result)
 
-i += 1
-insert_df(tot_len_result, tot_attack_len_result)
-df_stat.to_csv(dir_path + '/' + 'len_stat.csv')
+    i += 1
+    insert_df(tot_len_result, tot_attack_len_result)
+    df_stat.to_csv(dir_path + '/' + 'len_stat.csv')
