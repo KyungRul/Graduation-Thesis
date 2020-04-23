@@ -8,7 +8,7 @@ def preprocess(colname, df, dtype, to_df):
     unique = np.unique(ser)
     new_np = np.zeros_like(ser, dtype=np.float)
     for i, u in enumerate(unique):
-        new_np[np.where(ser == u)] = i
+        new_np[np.where(ser == u)[0]] = i
     to_df[colname] = new_np
     return to_df
 
@@ -38,7 +38,7 @@ if __name__ == '__main__':
     df = df.append(df_ack, ignore_index=True)
     df = df.append(df_udp, ignore_index=True)
 
-    df.fillna(value={'seq': 0, 'ack': -1, 'uriLen': 0, 'cookiesLen': 0}, inplace=True)
+    df.fillna(value={'srcPort': 1, 'dstPort': 1, 'seq': 0, 'ack': -1, 'uriLen': 0, 'cookiesLen': 0}, inplace=True)
 
     src = df['srcIP'].to_numpy().astype(np.str)
     dst = df['dstIP'].to_numpy().astype(np.str)
@@ -56,13 +56,13 @@ if __name__ == '__main__':
     freq_dst = np.array(freq_dst)
     freq_src = np.array(freq_src)
 
-    less_ips = dst_unique[np.where(freq_dst <= 6)]
+    less_ips = dst_unique[np.where(freq_dst <= 3000)]
     for i in less_ips:
-        dst[np.where(dst == i)] = 'small'
+        dst[np.where(dst == i)[0]] = 'small'
 
     less_ips = src_unique[np.where(freq_src <= 6)]
     for i in less_ips:
-        src[np.where(src == i)] = 'small'
+        src[np.where(src == i)[0]] = 'small'
     df['srcIP'] = src
     df['dstIP'] = dst
 
@@ -74,28 +74,32 @@ if __name__ == '__main__':
     src_unique = np.unique(src)
     dst_unique = np.unique(dst)
 
-    count = np.bincount(src.clip(0))
-    idx = count.nonzero()[0]
-    selected_ports = np.where(count.sum() // 100 >= count)
-    selected_ports = np.intersect1d(idx, selected_ports[0])
+    count = np.bincount(src)
+    # idx = count.nonzero()[0]
+    # selected_ports = np.where(count.sum() // 100 >= count)
+    # selected_ports = np.intersect1d(idx, selected_ports[0])
+    selected_ports = np.where(count.sum() // 100 < count)[0]
+    selected_ports = [a for a in src_unique if a not in selected_ports]
     for port in selected_ports:
-        src[np.where(src == port)] = -1
+        src[np.where(src == port)[0]] = -1
 
-    count = np.bincount(dst.clip(0))
-    idx = count.nonzero()[0]
-    selected_ports = np.where(count.sum() // 100 >= count)
-    selected_ports = np.intersect1d(idx, selected_ports)
+    count = np.bincount(dst)
+    # idx = count.nonzero()[0]
+    # selected_ports = np.where(count.sum() // 100 >= count)
+    # selected_ports = np.intersect1d(idx, selected_ports)
+    selected_ports = np.where(count.sum() // 100 < count)[0]
+    selected_ports = [a for a in src_unique if a not in selected_ports]
     for port in selected_ports:
-        dst[np.where(dst == port)] = -1
+        dst[np.where(dst == port)[0]] = -1
 
     df['srcPort'] = src
     df['dstPort'] = dst
-
-    flag = np.unique(df['flags'].to_numpy().astype(np.str)).size
-    method = np.unique(df['method'].to_numpy().astype(np.str)).size
-    status = np.unique(df['status'].to_numpy().astype(np.str)).size
-    host = np.unique(df['host'].to_numpy().astype(np.str)).size
-    user_agent = np.unique(df['user-agent'].to_numpy().astype(np.str)).size
+    #
+    # flag = np.unique(df['flags'].to_numpy().astype(np.str)).size
+    # method = np.unique(df['method'].to_numpy().astype(np.str)).size
+    # status = np.unique(df['status'].to_numpy().astype(np.str)).size
+    # host = np.unique(df['host'].to_numpy().astype(np.str)).size
+    # user_agent = np.unique(df['user-agent'].to_numpy().astype(np.str)).size
 
     to_df = categorize(df)
     to_df.to_csv('./preprocessed.csv', index=False)
