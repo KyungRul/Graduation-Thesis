@@ -56,7 +56,7 @@ class GRUNet(nn.Module):
 
 
 class LSTMNet(nn.Module):
-    def __init__(self, input_dim, hidden_dim, output_dim, n_layers, drop_prob=0.2):
+    def __init__(self, input_dim, hidden_dim=256, output_dim=1, n_layers=2, drop_prob=0.2):
         super(LSTMNet, self).__init__()
         self.hidden_dim = hidden_dim
         self.n_layers = n_layers
@@ -64,6 +64,9 @@ class LSTMNet(nn.Module):
         self.lstm = nn.LSTM(input_dim, hidden_dim, n_layers, batch_first=True, dropout=drop_prob)
         self.fc = nn.Linear(hidden_dim, output_dim)
         self.relu = nn.ReLU()
+
+    def change_device(self, num):
+        self.device = get_device(num)
 
     def forward(self, x, h):
         out, h = self.lstm(x, h)
@@ -166,29 +169,29 @@ def evaluate(model, test_x, test_y, test_loader, model_type="GRU"):
 
 def eval_metric(outputs, targets):
     outputs = np.around(outputs)
+    accuracy = metrics.accuracy_score(targets,outputs)
     precision = metrics.precision_score(targets, outputs)
     recall = metrics.recall_score(targets, outputs)
     f1 = metrics.f1_score(targets, outputs)
     fpr, tpr, thres = metrics.roc_curve(targets, outputs)
+    print('accuracy: ',accuracy)
     print('precision: ', precision)
     print('recall: ', recall)
     print('f1-score: ', f1)
     print('fpr: ', fpr)
     print('tpr', tpr)
     df = pd.DataFrame({'FPR': fpr, 'TPR': tpr, 'Threshold': thres})
-    df.to_csv('eval.csv', index=False)
+    df.to_csv('eval_{}.csv'.format(model_type), index=False)
     draw_roc(tpr, fpr)
 
 
 def draw_roc(tpr, fpr):
-    fpr = dict()
-    tpr = dict()
     roc_auc = metrics.auc(fpr, tpr)
 
     plt.figure()
     lw = 2
-    plt.plot(fpr[2], tpr[2], color='darkorange',
-             lw=lw, label='ROC curve (area = %0.2f)' % roc_auc)
+    plt.plot(fpr, tpr, color='darkorange',
+             lw=lw, label='ROC curve (area = %0.3f)' % roc_auc)
     plt.plot([0, 1], [0, 1], color='navy', lw=lw, linestyle='--')
     plt.xlim([0.0, 1.0])
     plt.ylim([0.0, 1.05])
@@ -196,7 +199,7 @@ def draw_roc(tpr, fpr):
     plt.ylabel('True Positive Rate')
     plt.title('ROC {}'.format(model_type))
     plt.legend(loc="lower right")
-    plt.savefig('ROC.jpg')
+    plt.savefig('ROC_{}.jpg'.format(model_type))
 
 
 if __name__ == '__main__':
@@ -262,18 +265,20 @@ if __name__ == '__main__':
     test_x = test_x.reshape(-1, lookback, test_set.shape[1])
     test_y = tests_y.reshape(-1, 1)
     ########
-    # train_data = TensorDataset(torch.from_numpy(train_x), torch.from_numpy(train_y))
-    # train_loader = DataLoader(train_data, shuffle=True, batch_size=batch_size, drop_last=True)
-    #
-    # gru_model = train(train_loader, lr, EPOCHS=5, model_type=model_type)
-    #
-    # torch.save(gru_model.state_dict(), './trained_model.pth')
-    ############
+    train_data = TensorDataset(torch.from_numpy(train_x), torch.from_numpy(train_y))
+    train_loader = DataLoader(train_data, shuffle=True, batch_size=batch_size, drop_last=True)
 
-    gru_model = GRUNet(test_x.shape[-1])
-    gru_model.change_device(1)
-    gru_model.load_state_dict(torch.load('./trained_model.pth', map_location=get_device(1)))
-    gru_model.to(get_device(1))
+    model = train(train_loader, lr, EPOCHS=5, model_type=model_type)
+
+    torch.save(model.state_dict(), './trained_model.pth')
+    ############
+    if model_type == 'GRU':
+        model = GRUNet(test_x.shape[-1])
+    else:
+        model = LSTMNet(test_x.shape[-1])
+    model.change_device(1)
+    model.load_state_dict(torch.load('./trained_model.pth', map_location=get_device(1)))
+    model.to(get_device(1))
 
     # del train_loader
     # del train_data
@@ -285,5 +290,5 @@ if __name__ == '__main__':
     test_data = TensorDataset(torch.from_numpy(test_x), torch.from_numpy(test_y))
     test_loader = DataLoader(test_data, shuffle=False, batch_size=batch_size, drop_last=True)
 
-    outputs, target, _ = evaluate(gru_model, test_x, test_y, test_loader)
+    outputs, target, _ = evaluate(model, test_x, test_y, test_loader, model_type)
     eval_metric(outputs, target)
